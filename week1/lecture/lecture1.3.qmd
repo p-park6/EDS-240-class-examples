@@ -89,9 +89,47 @@ ggplot(penguins, aes(x = species, y = after_stat(prop),
 
 position adjustments
 ```{r}
-ggplot(penguins, aes(x = species)) +
-  geom_bar()
+#stack on top one another
+ggplot(penguins, aes(x = species, fill = island)) +
+  geom_bar(position = "fill")
+
+#creates a bar plot for each variable
+ggplot(penguins, aes(x = species, fill = island)) +
+  geom_bar(position = "dodge")
+
+#another way (spaces it out)
+ggplot(penguins, aes(x = species, fill = island)) +
+  geom_bar(position = position_dodge2())
+
+#another way (spaces it out and looks uniform)
+ggplot(penguins, aes(x = species, fill = island)) +
+  geom_bar(position = position_dodge2(preserve = "single"))
 ```
+
+coordinate systems + themes
+```{r}
+# x and y axis are flipped
+ggplot(penguins, aes(x = species)) +
+  geom_bar() +
+  coord_flip()
+
+# creates it as a polar-like map
+ggplot(penguins, aes(x = species)) +
+  geom_bar() +
+  coord_polar()
+
+#themes
+ggplot(penguins, aes(x = species)) +
+  geom_bar() +
+  coord_flip() +
+  theme_classic() +
+  theme(
+    axis.title = element_text(size = 17, color = "purple")
+  )
+
+
+```
+
 
 
 
