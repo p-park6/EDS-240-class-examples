@@ -1,0 +1,79 @@
+
+
+## setup
+
+```{r}
+##~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+##                                    setup                                 ----
+##~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+#.........................load libraries.........................
+library(tidycensus)
+library(tidyverse)
+library(janitor)
+library(gghighlight)
+
+#.........................source API key.........................
+source(here::here("week3", "KEYS.R"))
+census_api_key(censusKEY)
+
+#..........................import data...........................
+lyme <- read_csv(here::here("week3", "data", "LD-Case-Counts-by-County-01-20.csv"))
+
+##~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+##                          wrangle lyme disease data                       ----
+##~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+#............wide to long (plus some other wrangling)............
+lyme_clean <- lyme |> 
+  
+  # make col names snake_case ----
+  janitor::clean_names() |> 
+  
+  # rename columns ----
+  rename(city = ctyname, state = stname, status = ststatus) |> 
+  
+  # wide to long (tidy) years
+  pivot_longer(cols = 6:25, names_to = "city_year", values_to = "reported_cases") |> 
+  
+  # remove "cases" from the year & coerce year from chr to factor ----
+  mutate(year = str_remove(city_year, pattern = "cases"),
+         year = as.factor(year)) |> 
+  
+  # select necessary cols ----
+  select(year, city, state, status, reported_cases)
+
+#................calculate total cases per state.................
+lyme_by_state <- lyme_clean |> 
+  group_by(year, state) |> 
+  summarize(total_cases = sum(reported_cases)) 
+
+##~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+##                      request / wrangle population data                   ----
+##~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+#...................get pop estimates by state...................
+us_state_pop <- get_estimates(geography = "state", 
+                              product = "population",
+                              state = NULL, 
+                              year = 2019) |> 
+  filter(variable == "POP") |> 
+  select(state = NAME, population = value) 
+
+#........................write data to csv.......................
+# optional, but recommended in case you want to work offline, the API is down, etc. (you can then read in your saved data file rather than run the above code)
+write_csv(us_state_pop, file = here::here("week3", "data", "us_state_pop.csv"))
+
+##~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+##                            join lyme & pop dfs                           ----
+##~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+lyme_pop <- left_join(lyme_by_state, us_state_pop) |> 
+  
+  # add col with num of 100k people per state ----
+  mutate(pop100k = population/100000) |> 
+  
+  # calculate num cases per 100k people (common way of reporting disease incidence) ----
+  mutate(cases_per100k = total_cases/pop100k) 
+```
+
